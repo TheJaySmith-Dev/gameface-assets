@@ -1,0 +1,37 @@
+{
+  "_comment": "Add competitions here. Each competition names a provider; providers live in scripts/providers/ and are registered in PROVIDERS in update-player-images.py. Update dates are set in .github/workflows/update-player-images.yml (cron) and described in update_windows below for the run summary.",
+  "update_windows": [
+    { "name": "January window", "run_after": "02-10" },
+    { "name": "Summer window", "run_after": "09-10" }
+  ],
+  "providers": {
+    "thesportsdb": {
+      "base_url": "https://www.thesportsdb.com/api/v1/json",
+      "api_key_env": "THESPORTSDB_API_KEY",
+      "fallback_free_key": "123",
+      "min_seconds_between_requests": 2.1,
+      "image_fields": ["strCutout", "strRender"]
+    }
+  },
+  "licence_policy": {
+    "_comment": "An image is accepted only when strCreativeCommons is Yes AND the attribution names one of these licences. NC/ND licences are always rejected.",
+    "allowed": ["CC0", "PUBLIC DOMAIN", "CC BY-SA", "CC BY"],
+    "rejected_markers": ["-NC", " NC", "-ND", " ND", "NONCOMMERCIAL", "NODERIVATIVES"]
+  },
+  "validation": {
+    "min_bytes": 10000,
+    "min_width": 200,
+    "min_height": 200,
+    "min_transparent_fraction": 0.05
+  },
+  "competitions": [
+    {
+      "slug": "premier-league",
+      "name": "Premier League",
+      "provider": "thesportsdb",
+      "league_id": "4328",
+      "league_name": "English Premier League",
+      "enabled": true
+    }
+  ]
+}

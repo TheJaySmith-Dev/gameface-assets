@@ -1,0 +1,80 @@
+name: Update player images
+
+on:
+  # Twice a year, after the transfer windows. Edit these dates to suit your competitions
+  # (cron is UTC: minute hour day month weekday). Currently 10 Feb and 10 Sep at 06:00.
+  schedule:
+    - cron: "0 6 10 2 *"
+    - cron: "0 6 10 9 *"
+  workflow_dispatch:
+    inputs:
+      competition:
+        description: "Only this competition slug (blank = all)"
+        required: false
+        default: ""
+      mode:
+        description: "pr = open a pull request, direct = commit to main"
+        required: false
+        default: ""
+        type: choice
+        options: ["", "pr", "direct"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: player-images
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      THESPORTSDB_API_KEY: ${{ secrets.THESPORTSDB_API_KEY }}
+      # Default mode comes from the repo variable UPDATE_MODE (pr or direct), else pr.
+      MODE: ${{ inputs.mode || vars.UPDATE_MODE || 'pr' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      - name: Fetch, validate and compare images
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.competition }}" ]; then ARGS="--competition ${{ inputs.competition }}"; fi
+          python scripts/update-player-images.py --summary update-summary.md $ARGS
+          cat update-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Detect changes
+        id: diff
+        run: |
+          git add -A players metadata
+          if git diff --cached --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true' && env.MODE == 'pr'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: player-images/update
+          delete-branch: true
+          title: "Player image update"
+          commit-message: "Update player images"
+          body-path: update-summary.md
+          add-paths: |
+            players
+            metadata
+
+      - name: Commit to main
+        if: steps.diff.outputs.changed == 'true' && env.MODE == 'direct'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update player images"
+          git push
+
+      - name: Nothing changed
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "No image or metadata changes." >> "$GITHUB_STEP_SUMMARY"
